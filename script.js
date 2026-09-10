@@ -1,5 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
     let state = {};
+
+    function forceZoomOut() {
+        let meta = document.querySelector('meta[name="viewport"]');
+        if (meta) {
+            // Forzar al navegador a reevaluar la escala fijando un máximo temporalmente
+            meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+            setTimeout(() => {
+                // Devolverle la libertad para futuros zooms
+                meta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+            }, 100);
+        }
+    }
+
     // --- LÓGICA DE INICIO DE SESIÓN ---
     window.sessionRoles = { rol: 'Invitado', maestroTostador: '', tostadorAdjunto: '', reporteDatos: '', registroFisico: '', registroPlataforma: '' };
     
@@ -82,16 +95,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let audioCtx;
     function playBeep() {
-        if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { console.error("Web Audio API no es soportada en este navegador.", e); return; } }
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.1);
+        // Vibración móvil (150ms vibra, 50ms pausa) x 3
+        if ("vibrate" in navigator) {
+            navigator.vibrate([150, 50, 150, 50, 150]);
+        }
+        
+        // Sonido de 3 pitidos
+        if (!audioCtx) { 
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
+            catch (e) { console.error("Web Audio API error.", e); return; } 
+        }
+        if(audioCtx.state === 'suspended') { audioCtx.resume(); } // Forzar despertar en móvil
+        
+        const now = audioCtx.currentTime;
+        for (let i = 0; i < 3; i++) {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 1000; // Tono agudo de alerta
+            
+            const startTime = now + (i * 0.25); // Separación de pitidos
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
+            gainNode.gain.linearRampToValueAtTime(0, startTime + 0.15);
+            
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.2);
+        }
     }
 
     const perfilIdeal = {
@@ -442,6 +474,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function startTimer() {
+        if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+        if (audioCtx && audioCtx.state === 'suspended') { audioCtx.resume(); }
         const s = state.samples[state.currentSample];
             s.equipo = window.sessionRoles;
         if (s.isTicking || state.mode === 'manual') return;
@@ -570,6 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s.data.sort((a,b) => a.time - b.time);
             populateDataLogTable();
             updateChartData();
+            forceZoomOut();
         };
         input.addEventListener('blur', saveAndExit);
         input.addEventListener('keydown', (e) => {
@@ -577,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.removeEventListener('blur', saveAndExit);
                 input.blur();
                 cell.textContent = currentValue;
+                forceZoomOut();
                 return;
             }
             if (e.key === 'Enter' || e.key === 'Tab') {
