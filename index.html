@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simulador de Tueste v15.7 (Gas y Aire)</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -49,7 +49,11 @@
                 </div>
                 <div class="manual-controls">
                      <h2>Control de Entrada Manual</h2>
-                    </div>
+                    <input type="file" id="profile-import-input" accept=".json,application/json" style="display: none;">
+                    <button id="import-profile-btn">Importar Perfil (JSON)</button>
+                    <input type="file" id="csv-import-input" accept=".csv,text/csv" style="display: none;">
+                    <button id="import-csv-btn">Importar Perfil (CSV)</button>
+                </div>
                 <div class="event-buttons">
                     <button id="turning_point-btn" class="event-button" data-event="turning_point">Marcar Equilibrio</button>
                     <button id="yellow-btn" class="event-button" data-event="yellow">Marcar Amarillo</button>

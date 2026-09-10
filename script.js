@@ -6,36 +6,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let manualModeActiveTime = null; // Rastrea la fila activa en modo manual
 
     let audioCtx;
-    function playAlert() {
-        // Vibrar en dispositivos móviles (3 vibraciones cortas)
-        if ("vibrate" in navigator) { 
-            navigator.vibrate([100, 100, 100, 100, 100]); 
-        }
-        
-        // Sonido de 3 pitidos
-        if (!audioCtx) { 
-            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
-            catch (e) { console.error("Web Audio API no es soportada en este navegador.", e); return; } 
-        }
-        
-        const now = audioCtx.currentTime;
-        for (let i = 0; i < 3; i++) {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 1000; // Un poco más agudo para que suene más a alerta
-            
-            const startTime = now + (i * 0.2); // Separados por 200ms
-            
-            gainNode.gain.setValueAtTime(0, startTime);
-            gainNode.gain.linearRampToValueAtTime(0.1, startTime + 0.02);
-            gainNode.gain.linearRampToValueAtTime(0, startTime + 0.1);
-            
-            oscillator.start(startTime);
-            oscillator.stop(startTime + 0.1);
-        }
+    function playBeep() {
+        if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { console.error("Web Audio API no es soportada en este navegador.", e); return; } }
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.1);
     }
 
     const perfilIdeal = {
@@ -105,8 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
         modeSwitch: document.getElementById('mode-switch'), dataLogTitle: document.getElementById('data-log-title'),
         reportChoiceModal: document.getElementById('report-choice-modal'), reportChoiceBody: document.getElementById('report-choice-body'),
         closeChoiceModal: document.getElementById('close-choice-modal'),
-         
-         
+        profileImportInput: document.getElementById('profile-import-input'), importProfileBtn: document.getElementById('import-profile-btn'),
+        csvImportInput: document.getElementById('csv-import-input'), importCsvBtn: document.getElementById('import-csv-btn'),
         addRowBtn: document.getElementById('add-row-btn'),
         saveSessionBtn: document.getElementById('save-session-btn'), openSessionBtn: document.getElementById('open-session-btn'),
         sessionImportInput: document.getElementById('session-import-input'),
@@ -182,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         allDOMElements.addRowBtn.addEventListener('click', () => addNewManualRow());
 
-        const { startBtn, stopBtn, resetBtn, dataLogBody, infoPanelsContainer, openReportChoicesBtn, eventButtons, saveEventBtn, cancelEventBtn, modeSwitch, closeChoiceModal, saveSessionBtn, openSessionBtn, sessionImportInput } = allDOMElements;
+        const { startBtn, stopBtn, resetBtn, dataLogBody, infoPanelsContainer, openReportChoicesBtn, eventButtons, saveEventBtn, cancelEventBtn, modeSwitch, closeChoiceModal, importProfileBtn, profileImportInput, importCsvBtn, csvImportInput, saveSessionBtn, openSessionBtn, sessionImportInput } = allDOMElements;
         startBtn.addEventListener('click', startTimer); stopBtn.addEventListener('click', stopTimer);
         resetBtn.addEventListener('click', resetCurrentRoast);
         infoPanelsContainer.addEventListener('change', (e) => { if (e.target.tagName === 'INPUT') { state.samples[state.currentSample].info[e.target.dataset.field] = e.target.value; if (e.target.dataset.field === 'roastedWeight') updateSummary(state.currentSample); } });
@@ -192,7 +173,10 @@ document.addEventListener('DOMContentLoaded', () => {
         saveEventBtn.addEventListener('click', saveEvent); cancelEventBtn.addEventListener('click', closeEventModal);
         modeSwitch.addEventListener('click', toggleMode);
         closeChoiceModal.addEventListener('click', () => allDOMElements.reportChoiceModal.classList.remove('visible'));
-        
+        importProfileBtn.addEventListener('click', () => profileImportInput.click());
+        profileImportInput.addEventListener('change', handleProfileImport);
+        importCsvBtn.addEventListener('click', () => csvImportInput.click());
+        csvImportInput.addEventListener('change', handleCsvProfileImport);
         saveSessionBtn.addEventListener('click', saveSession);
         openSessionBtn.addEventListener('click', () => sessionImportInput.click());
         sessionImportInput.addEventListener('change', handleSessionImport);
@@ -433,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (s.elapsedSeconds > 0 && s.elapsedSeconds % LOG_INTERVAL === 0) {
-            playAlert();
+            playBeep();
         }
     }
 
@@ -691,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    function updateButtonsState() { const s = state.samples[state.currentSample]; const { startBtn, stopBtn, resetBtn } = allDOMElements; const isLive = state.mode === 'live'; const isTicking = s.isTicking; startBtn.disabled = !isLive || isTicking; stopBtn.disabled = !isLive || !isTicking; resetBtn.disabled = isTicking;  allDOMElements.addRowBtn.style.display = isLive ? 'none' : 'block'; }
+    function updateButtonsState() { const s = state.samples[state.currentSample]; const { startBtn, stopBtn, resetBtn, importProfileBtn, importCsvBtn } = allDOMElements; const isLive = state.mode === 'live'; const isTicking = s.isTicking; startBtn.disabled = !isLive || isTicking; stopBtn.disabled = !isLive || !isTicking; resetBtn.disabled = isTicking; importProfileBtn.disabled = isTicking; importCsvBtn.disabled = isTicking; allDOMElements.addRowBtn.style.display = isLive ? 'none' : 'block'; }
     
     function setupChart() {
         if (roastChart) roastChart.destroy();
