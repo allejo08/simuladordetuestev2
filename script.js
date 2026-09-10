@@ -1,5 +1,80 @@
 document.addEventListener('DOMContentLoaded', () => {
     let state = {};
+    // --- LÓGICA DE INICIO DE SESIÓN ---
+    window.sessionRoles = { rol: 'Invitado', maestroTostador: '', tostadorAdjunto: '', reporteDatos: '', registroFisico: '', registroPlataforma: '' };
+    
+    const loginScreen = document.getElementById('login-screen');
+    const studentForm = document.getElementById('student-form');
+    const roleButtons = document.getElementById('role-buttons');
+    
+    const lists = ['maestro', 'adjunto', 'reporte', 'fisico', 'plataforma'];
+    lists.forEach(listId => {
+        const saved = JSON.parse(localStorage.getItem('cafelab_' + listId)) || [];
+        const datalist = document.getElementById('list-' + listId);
+        if(datalist) {
+            saved.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                datalist.appendChild(opt);
+            });
+        }
+    });
+
+    function saveToMemory(listId, val) {
+        if(!val) return;
+        let saved = JSON.parse(localStorage.getItem('cafelab_' + listId)) || [];
+        if(!saved.includes(val)) {
+            saved.push(val);
+            localStorage.setItem('cafelab_' + listId, JSON.stringify(saved));
+        }
+    }
+
+    if (loginScreen) {
+        document.getElementById('btn-docente').addEventListener('click', () => {
+            window.sessionRoles.rol = 'Docente';
+            roleButtons.classList.add('hidden');
+            roleButtons.style.display = 'none';
+            document.getElementById('simple-name-title').textContent = 'Registro de Docente';
+            document.getElementById('simple-name-form').classList.remove('hidden');
+        });
+        document.getElementById('btn-invitado').addEventListener('click', () => {
+            window.sessionRoles.rol = 'Invitado';
+            roleButtons.classList.add('hidden');
+            roleButtons.style.display = 'none';
+            document.getElementById('simple-name-title').textContent = 'Registro de Invitado';
+            document.getElementById('simple-name-form').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-iniciar-simple').addEventListener('click', () => {
+            const nombre = document.getElementById('simple-name-input').value || 'Anónimo';
+            window.sessionRoles.maestroTostador = nombre; // Reutilizamos esta variable para guardar el nombre principal
+            saveToMemory('maestro', nombre);
+            loginScreen.classList.add('hidden');
+        });
+        document.getElementById('btn-estudiante').addEventListener('click', () => {
+            window.sessionRoles.rol = 'Estudiante';
+            roleButtons.classList.add('hidden');
+            roleButtons.style.display = 'none';
+            studentForm.classList.remove('hidden');
+        });
+        document.getElementById('btn-iniciar-estudiante').addEventListener('click', () => {
+            window.sessionRoles.maestroTostador = document.getElementById('maestro-tostador').value;
+            window.sessionRoles.tostadorAdjunto = document.getElementById('tostador-adjunto').value;
+            window.sessionRoles.reporteDatos = document.getElementById('reporte-datos').value;
+            window.sessionRoles.registroFisico = document.getElementById('registro-fisico').value;
+            window.sessionRoles.registroPlataforma = document.getElementById('registro-plataforma').value;
+            
+            saveToMemory('maestro', window.sessionRoles.maestroTostador);
+            saveToMemory('adjunto', window.sessionRoles.tostadorAdjunto);
+            saveToMemory('reporte', window.sessionRoles.reporteDatos);
+            saveToMemory('fisico', window.sessionRoles.registroFisico);
+            saveToMemory('plataforma', window.sessionRoles.registroPlataforma);
+
+            loginScreen.classList.add('hidden');
+        });
+    }
+    // --- FIN LÓGICA DE INICIO ---
+
     const colors = { A: '#0077b6', B: '#f77f00', C: '#55a630', D: '#8031a7' };
     const colorKeys = Object.keys(colors);
     
@@ -187,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function logAdjustment(type, value) {
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         if (!s) return;
 
         let adjustmentTime;
@@ -327,7 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function verificarEstadoSimulacion() { const elapsedFloor = Math.floor(simulationState.elapsedSeconds); const allMessages = []; const selectedSamples = [...new Set(simulationChart.data.datasets.map(d => d.label.split(' ')[1]).filter(Boolean))]; selectedSamples.forEach(id => { const sampleInfo = simulationState.fullData[id]; if (!sampleInfo) return; const data = sampleInfo.rawData.filter(p => p.time <= elapsedFloor); if (data.length < 2) return; const lastPoint = data[data.length - 1]; const prevPoint = data.length > 1 ? data[data.length - 2] : data[0]; const timeDiffMinutes = (lastPoint.time - prevPoint.time) / 60; const rorActual = timeDiffMinutes > 0 ? (lastPoint.temp - prevPoint.temp) / timeDiffMinutes : 0; let faseActualKey = 'Equilibrio'; if (sampleInfo.events.turning_point && elapsedFloor >= sampleInfo.events.turning_point.time) faseActualKey = 'Amarillo'; if (sampleInfo.events.yellow && elapsedFloor >= sampleInfo.events.yellow.time) faseActualKey = 'Primer Crack'; if (sampleInfo.events.crack && elapsedFloor >= sampleInfo.events.crack.time) { allMessages.push({id, text: `<strong>Muestra ${id} (Desarrollo):</strong> Controlando DTR.`}); return; } const perfilFase = perfilIdeal[faseActualKey]; if (rorActual < perfilFase.rorMedioMin) allMessages.push({id, text: `<strong>Muestra ${id} (Error):</strong> ${perfilFase.soluciones.rorBajo(rorActual)}`}); if (rorActual > perfilFase.rorMedioMax) allMessages.push({id, text: `<strong>Muestra ${id} (Error):</strong> ${perfilFase.soluciones.rorAlto(rorActual)}`}); }); mostrarAvisosSimulacion(allMessages); }
     function mostrarAvisosSimulacion(mensajes) { const container = allDOMElements.simAvisosContainer; container.innerHTML = ''; if (mensajes.length === 0) { container.innerHTML = '<p class="aviso aviso-info">Todo en orden para los tuestes seleccionados en este momento.</p>'; } else { mensajes.forEach(msg => { const p = document.createElement('p'); p.className = 'aviso aviso-warning'; p.innerHTML = msg.text; container.appendChild(p); }); } }
     
-    function handleCsvProfileImport(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const lines = e.target.result.split(/\r\n|\n/); const newData = []; const startIndex = lines[0].toLowerCase().includes('tiempo') ? 1 : 0; for (let i = startIndex; i < lines.length; i++) { const parts = lines[i].split(/[,;]/); if (parts.length < 2) continue; const time = parseInt(parts[0].trim(), 10); const temp = parseFloat(parts[1].trim()); if (!isNaN(time) && !isNaN(temp)) { newData.push({ time: time, temp: temp }); } } if (newData.length === 0) { throw new Error('No se encontraron datos válidos. Formato: tiempo,temperatura'); } const s = state.samples[state.currentSample]; Object.assign(s, createEmptySample(), { info: s.info }); s.data = newData.sort((a,b) => a.time - b.time); updateUI(); alert(`Perfil CSV importado a Muestra ${state.currentSample}.`); } catch(error) { alert(`Error al importar CSV: ${error.message}`); } }; reader.readAsText(file); event.target.value = ''; }
+    function handleCsvProfileImport(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const lines = e.target.result.split(/\r\n|\n/); const newData = []; const startIndex = lines[0].toLowerCase().includes('tiempo') ? 1 : 0; for (let i = startIndex; i < lines.length; i++) { const parts = lines[i].split(/[,;]/); if (parts.length < 2) continue; const time = parseInt(parts[0].trim(), 10); const temp = parseFloat(parts[1].trim()); if (!isNaN(time) && !isNaN(temp)) { newData.push({ time: time, temp: temp }); } } if (newData.length === 0) { throw new Error('No se encontraron datos válidos. Formato: tiempo,temperatura'); } const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; Object.assign(s, createEmptySample(), { info: s.info }); s.data = newData.sort((a,b) => a.time - b.time); updateUI(); alert(`Perfil CSV importado a Muestra ${state.currentSample}.`); } catch(error) { alert(`Error al importar CSV: ${error.message}`); } }; reader.readAsText(file); event.target.value = ''; }
     function saveSession() { if (state.samples[state.currentSample].isTicking) { alert('Detén el tueste actual antes de guardar.'); return; } state.samples[state.currentSample].asistenteAvisos = analizarPerfilCompleto(state.samples[state.currentSample]); const dataToExport = JSON.stringify(state, null, 2); const blob = new Blob([dataToExport], {type: "application/json"}); const url = URL.createObjectURL(blob); const link = document.createElement("a"); const date = new Date().toISOString().split('T')[0]; link.setAttribute("href", url); link.setAttribute("download", `Sesion_Tueste_${date}.json`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
     function handleSessionImport(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const importedState = JSON.parse(e.target.result); if (!importedState.samples || !importedState.samples.A || !importedState.mode || !importedState.currentSample) { throw new Error('El archivo no parece ser un archivo de sesión válido.'); } Object.values(importedState.samples).forEach(sample => { sample.asistenteAvisos = sample.asistenteAvisos || []; sample.adjustments = sample.adjustments || []; }); if (timerInterval) clearInterval(timerInterval); state = importedState; restoreFullSessionUI(); alert('¡Sesión cargada correctamente!'); } catch (error) { alert(`Error al cargar sesión: ${error.message}`); globalReset(); } }; reader.readAsText(file); event.target.value = ''; }
 
@@ -366,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function startTimer() {
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         if (s.isTicking || state.mode === 'manual') return;
         manualModeActiveTime = null;
         s.asistenteAvisos = [];
@@ -387,12 +465,15 @@ document.addEventListener('DOMContentLoaded', () => {
         tick();
     }
 
-    function stopTimer() { const s = state.samples[state.currentSample]; if (!s.isTicking) return; s.isTicking = false; clearInterval(timerInterval); updateButtonsState(); s.asistenteAvisos = analizarPerfilCompleto(s); updateSummary(state.currentSample); }
-    function resetCurrentRoast() { const s = state.samples[state.currentSample]; if (s.isTicking) stopTimer(); Object.assign(s, createEmptySample(), {info: s.info}); manualModeActiveTime = null; updateUI(); }
+    function stopTimer() { const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; if (!s.isTicking) return; s.isTicking = false; clearInterval(timerInterval); updateButtonsState(); s.asistenteAvisos = analizarPerfilCompleto(s); updateSummary(state.currentSample); }
+    function resetCurrentRoast() { const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; if (s.isTicking) stopTimer(); Object.assign(s, createEmptySample(), {info: s.info}); manualModeActiveTime = null; updateUI(); }
     function globalReset() { if (timerInterval) clearInterval(timerInterval); state = getInitialState(); manualModeActiveTime = null; restoreFullSessionUI(); }
     
     function tick() {
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         if (!s.isTicking) return;
         s.elapsedSeconds = Math.round((Date.now() - s.startTime) / 1000);
         allDOMElements.timerDisplay.textContent = formatTime(s.elapsedSeconds);
@@ -423,6 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addNewManualRow(makeEditable = true) {
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         const lastDataPoint = s.data.length > 0 ? s.data[s.data.length - 1] : { time: -LOG_INTERVAL };
         const newTime = lastDataPoint.time + LOG_INTERVAL;
 
@@ -449,6 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
             manualModeActiveTime = parseInt(row.dataset.time, 10);
         }
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         const timeOfRow = parseInt(row.dataset.time);
         
         const dataPoint = s.data.find((d) => d.time === timeOfRow);
@@ -524,12 +607,14 @@ document.addEventListener('DOMContentLoaded', () => {
         input.select();
     }
 
-    function logTemperature(time, temp) { const s = state.samples[state.currentSample]; let dataPoint = s.data.find(d => d.time === time && !d.adjustment); if (dataPoint) { dataPoint.temp = temp; } else { s.data.push({ time, temp }); s.data.sort((a,b) => a.time - b.time); } populateDataLogTable(); updateChartData(); }
+    function logTemperature(time, temp) { const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; let dataPoint = s.data.find(d => d.time === time && !d.adjustment); if (dataPoint) { dataPoint.temp = temp; } else { s.data.push({ time, temp }); s.data.sort((a,b) => a.time - b.time); } populateDataLogTable(); updateChartData(); }
     
     function openEventModal(eventType) {
         currentEventToSave = eventType;
         const { eventModal, eventModalTitle, eventTimeInput, eventTempInput } = allDOMElements;
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         const existingEvent = s.events[eventType];
         eventModalTitle.textContent = `${existingEvent ? 'Editar' : 'Registrar'} ${eventNames[eventType]}`;
 
@@ -564,8 +649,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function closeEventModal() { allDOMElements.eventModal.classList.remove('visible'); currentEventToSave = null; }
-    function saveEvent() { const { eventTimeInput, eventTempInput } = allDOMElements; const timeInSeconds = parseTimeToSeconds(eventTimeInput.value); const temp = parseFloat(eventTempInput.value); if (timeInSeconds === null || isNaN(temp)) { alert('Datos inválidos.'); return; } const s = state.samples[state.currentSample]; const existingEvent = s.events[currentEventToSave]; if (existingEvent) { s.data = s.data.filter(d => d.time !== existingEvent.time || d.temp !== existingEvent.temp); } const currentIndex = eventOrder.indexOf(currentEventToSave); if (currentIndex > 0) { const prevEvent = s.events[eventOrder[currentIndex - 1]]; if (prevEvent && timeInSeconds < prevEvent.time) { alert(`Error: El tiempo de "${eventNames[currentEventToSave]}" (${formatTime(timeInSeconds)}) no puede ser anterior al de "${eventNames[eventOrder[currentIndex-1]]}" (${formatTime(prevEvent.time)}).`); return; } } if (currentIndex < eventOrder.length - 1) { const nextEvent = s.events[eventOrder[currentIndex + 1]]; if (nextEvent && timeInSeconds > nextEvent.time) { alert(`Error: El tiempo de "${eventNames[currentEventToSave]}" (${formatTime(timeInSeconds)}) no puede ser posterior al de "${eventNames[eventOrder[currentIndex+1]]}" (${formatTime(nextEvent.time)}).`); return; } } s.events[currentEventToSave] = { time: timeInSeconds, temp: temp }; if (currentEventToSave === 'end') { if (state.mode === 'live' && s.isTicking) { stopTimer(); } } logTemperature(timeInSeconds, temp); updateUI(); closeEventModal(); }
-    function handleProfileImport(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const importedProfile = JSON.parse(e.target.result); if (!importedProfile.data || !importedProfile.events || !importedProfile.info) { throw new Error('Formato de perfil JSON inválido.'); } const s = state.samples[state.currentSample]; Object.assign(s, createEmptySample()); Object.assign(s, importedProfile); s.asistenteAvisos = s.asistenteAvisos || []; s.adjustments = s.adjustments || []; updateUI(); restoreInfoInputs(state.currentSample); } catch (error) { alert(`Error al importar perfil: ${error.message}`); } }; reader.readAsText(file); event.target.value = ''; }
+    function saveEvent() { const { eventTimeInput, eventTempInput } = allDOMElements; const timeInSeconds = parseTimeToSeconds(eventTimeInput.value); const temp = parseFloat(eventTempInput.value); if (timeInSeconds === null || isNaN(temp)) { alert('Datos inválidos.'); return; } const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; const existingEvent = s.events[currentEventToSave]; if (existingEvent) { s.data = s.data.filter(d => d.time !== existingEvent.time || d.temp !== existingEvent.temp); } const currentIndex = eventOrder.indexOf(currentEventToSave); if (currentIndex > 0) { const prevEvent = s.events[eventOrder[currentIndex - 1]]; if (prevEvent && timeInSeconds < prevEvent.time) { alert(`Error: El tiempo de "${eventNames[currentEventToSave]}" (${formatTime(timeInSeconds)}) no puede ser anterior al de "${eventNames[eventOrder[currentIndex-1]]}" (${formatTime(prevEvent.time)}).`); return; } } if (currentIndex < eventOrder.length - 1) { const nextEvent = s.events[eventOrder[currentIndex + 1]]; if (nextEvent && timeInSeconds > nextEvent.time) { alert(`Error: El tiempo de "${eventNames[currentEventToSave]}" (${formatTime(timeInSeconds)}) no puede ser posterior al de "${eventNames[eventOrder[currentIndex+1]]}" (${formatTime(nextEvent.time)}).`); return; } } s.events[currentEventToSave] = { time: timeInSeconds, temp: temp }; if (currentEventToSave === 'end') { if (state.mode === 'live' && s.isTicking) { stopTimer(); } } logTemperature(timeInSeconds, temp); updateUI(); closeEventModal(); }
+    function handleProfileImport(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const importedProfile = JSON.parse(e.target.result); if (!importedProfile.data || !importedProfile.events || !importedProfile.info) { throw new Error('Formato de perfil JSON inválido.'); } const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; Object.assign(s, createEmptySample()); Object.assign(s, importedProfile); s.asistenteAvisos = s.asistenteAvisos || []; s.adjustments = s.adjustments || []; updateUI(); restoreInfoInputs(state.currentSample); } catch (error) { alert(`Error al importar perfil: ${error.message}`); } }; reader.readAsText(file); event.target.value = ''; }
     
     function analizarPerfilCompleto(sample) {
         const data = sample.data.filter(d => d.temp !== null).sort((a, b) => a.time - b.time);
@@ -663,7 +750,8 @@ document.addEventListener('DOMContentLoaded', () => {
         else { mensajesParaMostrar.forEach(msg => { const p = document.createElement('p'); p.className = `aviso aviso-${msg.tipo}`; p.innerHTML = msg.texto; allDOMElements.avisosContainer.appendChild(p); }); }
     }
     
-    function updateUI() { const s = state.samples[state.currentSample]; allDOMElements.timerDisplay.textContent = formatTime(s.elapsedSeconds); populateDataLogTable(); updateChartData(); updateEventButtonStates(); updateButtonsState(); Object.keys(state.samples).forEach(id => updateSummary(id)); }
+    function updateUI() { const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; allDOMElements.timerDisplay.textContent = formatTime(s.elapsedSeconds); populateDataLogTable(); updateChartData(); updateEventButtonStates(); updateButtonsState(); Object.keys(state.samples).forEach(id => updateSummary(id)); }
     function restoreInfoInputs(sampleId) { const s = state.samples[sampleId]; if (!s) return; const panel = document.getElementById(`info-panel-${sampleId}`); if(panel) { panel.querySelectorAll('input').forEach(input => { input.value = s.info[input.dataset.field] || ''; }); } }
     function updateEventButtonStates() { allDOMElements.eventButtons.forEach(btn => { if(state.samples[state.currentSample].events[btn.dataset.event]) btn.classList.add('marked'); else btn.classList.remove('marked'); }); }
     
@@ -675,7 +763,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    function updateButtonsState() { const s = state.samples[state.currentSample]; const { startBtn, stopBtn, resetBtn, importProfileBtn, importCsvBtn } = allDOMElements; const isLive = state.mode === 'live'; const isTicking = s.isTicking; startBtn.disabled = !isLive || isTicking; stopBtn.disabled = !isLive || !isTicking; resetBtn.disabled = isTicking; importProfileBtn.disabled = isTicking; importCsvBtn.disabled = isTicking; allDOMElements.addRowBtn.style.display = isLive ? 'none' : 'block'; }
+    function updateButtonsState() { const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; const { startBtn, stopBtn, resetBtn, importProfileBtn, importCsvBtn } = allDOMElements; const isLive = state.mode === 'live'; const isTicking = s.isTicking; startBtn.disabled = !isLive || isTicking; stopBtn.disabled = !isLive || !isTicking; resetBtn.disabled = isTicking; importProfileBtn.disabled = isTicking; importCsvBtn.disabled = isTicking; allDOMElements.addRowBtn.style.display = isLive ? 'none' : 'block'; }
     
     function setupChart() {
         if (roastChart) roastChart.destroy();
@@ -706,7 +795,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateChartData() {
-        const s = state.samples[state.currentSample]; if (!roastChart || !s) return;
+        const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles; if (!roastChart || !s) return;
         const dataArray = s.data.filter(d => d.temp !== null && !d.adjustment).sort((a,b) => a.time - b.time);
         
         const eventTimeToIcon = {}; 
@@ -800,6 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function populateDataLogTable() {
         const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
         allDOMElements.dataLogBody.innerHTML = '';
         if (!s) return;
 
@@ -906,7 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function exportProfileToJSON(sampleId) { const s = state.samples[sampleId]; s.asistenteAvisos = analizarPerfilCompleto(s); const dataToExport = JSON.stringify(s, null, 2); const blob = new Blob([dataToExport], {type: "application/json"}); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", `Muestra_${sampleId}_Perfil.json`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+    function exportProfileToJSON(sampleId) { const s = state.samples[sampleId]; s.asistenteAvisos = analizarPerfilCompleto(s); s.equipo = window.sessionRoles; const dataToExport = JSON.stringify(s, null, 2); const blob = new Blob([dataToExport], {type: "application/json"}); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.setAttribute("href", url); let nombreMaestro = "Perfil"; if(window.sessionRoles && window.sessionRoles.maestroTostador) { nombreMaestro = window.sessionRoles.maestroTostador.trim().split(" ")[0]; } link.setAttribute("download", `Muestra_${sampleId}_${nombreMaestro}.json`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
     function exportSingleToCSV(sampleId) { const s = state.samples[sampleId]; const dataToExport = s.data.filter(d => d.temp !== null && !d.adjustment).sort((a, b) => a.time - b.time); if (dataToExport.length === 0) { alert('No hay datos para exportar.'); return; } let csvContent = 'tiempo,temperatura\n'; dataToExport.forEach(d => { csvContent += `${d.time},${d.temp.toFixed(1)}\n`; }); const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent); const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `Muestra_${sampleId}_Datos.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
     function exportConsolidatedToCSV() { const samplesWithData = Object.keys(state.samples).filter(id => state.samples[id].data.filter(d => d.temp !== null).length > 0); if (samplesWithData.length === 0) { alert('No hay datos para exportar.'); return; } let maxTime = 0; samplesWithData.forEach(id => { const s = state.samples[id]; const lastDataPoint = s.data.filter(d=>d.temp!==null && !d.adjustment).pop(); if (lastDataPoint && lastDataPoint.time > maxTime) maxTime = lastDataPoint.time; }); let csvContent = `tiempo,${samplesWithData.map(id => `temp_${id}`).join(',')}\n`; let logRows = ''; for(let t = 0; t <= maxTime; t += LOG_INTERVAL) { let row = `${t}`; samplesWithData.forEach(id => { const dataPoint = state.samples[id].data.find(d => d.time === t && !d.adjustment); row += `,${dataPoint && dataPoint.temp !== null ? dataPoint.temp.toFixed(1) : ''}`; }); logRows += `${row}\n`; } csvContent += logRows; const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent); const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `Informe_Consolidado.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
     function formatTime(s) { return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`; }
@@ -921,6 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveCloudBtn) {
         saveCloudBtn.addEventListener('click', () => {
             const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
             const devTime = (s.events.crack && s.events.end) ? s.events.end.time - s.events.crack.time : 0;
             const filteredData = s.data.filter(d => d.temp !== null && !d.adjustment);
             const totalTime = s.events.end ? s.events.end.time : (filteredData.length > 0 ? filteredData[filteredData.length - 1].time : 0);
@@ -1036,6 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const importedProfile = JSON.parse(data.data);
                     const s = state.samples[state.currentSample];
+            s.equipo = window.sessionRoles;
                     Object.assign(s, createEmptySample());
                     Object.assign(s, importedProfile);
                     s.asistenteAvisos = s.asistenteAvisos || [];

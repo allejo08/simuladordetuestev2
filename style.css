@@ -154,3 +154,15 @@ body.mode-manual .add-row-button { display: block; }
     .report-single-graph { max-height: 40vh; }
     @page { size: A4; margin: 10mm; }
 }
+
+.login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; justify-content: center; align-items: center; }
+.login-overlay.hidden { display: none !important; }
+.login-box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 90%; max-width: 350px; text-align: center; }
+.role-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+.role-btn { color: white; padding: 12px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+.student-form { margin-top: 10px; text-align: left; }
+.student-form.hidden { display: none; }
+.student-form .field { margin-bottom: 10px; }
+.student-form label { font-size: 13px; font-weight: bold; display: block; margin-bottom: 3px;}
+.student-form input { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+.start-btn { width: 100%; background: var(--sim-color); color: white; padding: 12px; margin-top: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
